@@ -1,4 +1,4 @@
-doubletFinder <- function(seu, PCs, pN = 0.25, pK, nExp, reuse.pANN = FALSE, sct = FALSE, annotations = NULL) {
+doubletFinderX <- function(seu, PCs, pN = 0.25, pK, nExp, reuse.pANN = FALSE, sct = FALSE, annotations = NULL,  variable.features.n = NULL, vars.to.regress = NULL, unwanted.feature = NULL) {
   require(Seurat); require(fields); require(KernSmooth)
 
   ## Generate new list of doublet classificatons from existing pANN vector to save time
@@ -86,10 +86,15 @@ doubletFinder <- function(seu, PCs, pN = 0.25, pK, nExp, reuse.pANN = FALSE, sct
       require(sctransform)
       print("Creating Seurat object...")
       seu_wdoublets <- CreateSeuratObject(counts = data_wdoublets)
+      seu_wdoublets[["percent.mt"]] <- PercentageFeatureSet(seu_wdoublets, pattern = "^mt-")
+      seu_wdoublets[["percent.rb"]] <- PercentageFeatureSet(seu_wdoublets, pattern = "^Rp[sl]")
+      seu_wdoublets <- CellCycleScoring(seu_wdoublets, s.features = cc.genes$s.genes, g2m.features = cc.genes$g2m.genes, set.ident = T, slot = "counts")
 
       print("Running SCTransform...")
       seu_wdoublets <- SCTransform(seu_wdoublets)
-
+      seu_wdoublets <- SCTransform(seu_wdoublets, method = "glmGamPoi",  assay = "RNA", new.assay.name = "SCT", variable.features.n = variable.features.n, 
+                     vars.to.regress = vars.to.regress, do.scale = T, do.center = T, return.only.var.genes = T, verbose = T)
+      VariableFeatures(seu_wdoublets) <- setdiff(VariableFeatures(seu_wdoublets), unwanted.feature)
       print("Running PCA...")
       seu_wdoublets <- RunPCA(seu_wdoublets, npcs = length(PCs))
       pca.coord <- seu_wdoublets@reductions$pca@cell.embeddings[ , PCs]
